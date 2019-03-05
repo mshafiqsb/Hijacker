@@ -1,7 +1,7 @@
 package com.hijacker;
 
 /*
-    Copyright (C) 2017  Christos Kyriakopoylos
+    Copyright (C) 2019  Christos Kyriakopoulos
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -36,7 +36,7 @@ public class LoadingDialog extends DialogFragment {
         setCancelable(false);
         AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
         dialogView = getActivity().getLayoutInflater().inflate(R.layout.loading_dialog, null);
-        loadingDescription = (TextView) dialogView.findViewById(R.id.loadingDescription);
+        loadingDescription = dialogView.findViewById(R.id.loadingDescription);
 
         if(title!=null) loadingDescription.setText(title);
 

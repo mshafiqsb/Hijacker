@@ -19,6 +19,10 @@
             android:summary="@string/watchdog_sum"
             android:title="@string/watchdog_title" />
         <SwitchPreference
+            android:defaultValue="@string/show_client_count"
+            android:key="show_client_count"
+            android:title="@string/show_client_count_title" />
+        <SwitchPreference
             android:defaultValue="@string/debug"
             android:key="debug"
             android:summary="@string/debug_sum"
@@ -40,12 +44,6 @@
             android:defaultValue="@string/airOnStartup"
             android:key="airOnStartup"
             android:title="@string/startup_title" />
-        <Preference
-            android:selectAllOnFocus="true"
-            android:singleLine="true"
-            android:title="@string/cap_title"
-            android:key="cap_dir"
-            android:summary="@string/cap_sum" />
         <SwitchPreference
             android:defaultValue="@string/delete_extra"
             android:title="@string/delete_extra_title"
@@ -56,6 +54,13 @@
             android:title="@string/always_cap_title"
             android:summary="@string/always_cap_sum"
             android:key="always_cap"/>
+        <ListPreference
+            android:defaultValue="1"
+            android:entries="@array/band_choices"
+            android:entryValues="@array/band_values"
+            android:key="band"
+            android:summary="@string/band_sum"
+            android:title="@string/band_title" />
     </PreferenceCategory>
     <PreferenceCategory android:title="Aireplay">
         <EditTextPreference
@@ -64,6 +69,7 @@
             android:dialogTitle="@string/deauthWait_title"
             android:inputType="number"
             android:key="deauthWait"
+            android:maxLength="8"
             android:selectAllOnFocus="true"
             android:singleLine="true"
             android:summary="@string/deauthWait_sum"
@@ -154,9 +160,6 @@
 
     </PreferenceCategory>
     <PreferenceCategory android:title="@string/other">
-        <Preference
-            android:title="@string/restore_firmware"
-            android:key="restore_firmware" />
         <Preference
             android:title="@string/reset_title"
             android:key="reset_pref" />

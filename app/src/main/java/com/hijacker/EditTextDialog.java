@@ -1,7 +1,7 @@
 package com.hijacker;
 
 /*
-    Copyright (C) 2016  Christos Kyriakopoylos
+    Copyright (C) 2019  Christos Kyriakopoulos
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -42,7 +42,7 @@ public class EditTextDialog extends DialogFragment {
         AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
         dialogView = getActivity().getLayoutInflater().inflate(R.layout.edit_text_dialog, null);
 
-        fieldView = (EditText)dialogView.findViewById(R.id.edit_text);
+        fieldView = dialogView.findViewById(R.id.edit_text);
         fieldView.setOnEditorActionListener(new TextView.OnEditorActionListener(){
             @Override
             public boolean onEditorAction(TextView v, int actionId, KeyEvent event){

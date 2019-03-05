@@ -1,7 +1,7 @@
 package com.hijacker;
 
 /*
-    Copyright (C) 2016  Christos Kyriakopoylos
+    Copyright (C) 2019  Christos Kyriakopoulos
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -17,7 +17,6 @@ package com.hijacker;
     along with this program.  If not, see <http://www.gnu.org/licenses/>
  */
 
-import android.app.Activity;
 import android.app.FragmentManager;
 import android.util.Log;
 import android.view.View;
@@ -221,7 +220,7 @@ class ST extends Device{
         frames = 0;
         lost = 0;
     }
-    PopupMenu getPopupMenu(final Activity activity, final View v){
+    PopupMenu getPopupMenu(final MainActivity activity, final View v){
         PopupMenu popup = new PopupMenu(activity, v);
         popup.getMenuInflater().inflate(R.menu.popup_menu, popup.getMenu());
 

@@ -1,7 +1,7 @@
 package com.hijacker;
 
 /*
-    Copyright (C) 2016  Christos Kyriakopoylos
+    Copyright (C) 2019  Christos Kyriakopoulos
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -71,7 +71,7 @@ public class SendLogActivity extends AppCompatActivity{
 
         rootView = findViewById(R.id.activity_send_log);
         progressBar = findViewById(R.id.reportProgressBar);
-        console = (TextView)findViewById(R.id.console);
+        console = findViewById(R.id.console);
         sendEmailBtn = findViewById(R.id.sendEmailBtn);
 
         busybox = getFilesDir().getAbsolutePath() + "/bin/busybox";
@@ -166,7 +166,7 @@ public class SendLogActivity extends AppCompatActivity{
     public void onUseEmail(View v){
         Intent intent = new Intent (Intent.ACTION_SEND);
         intent.setType("plain/text");
-        intent.putExtra(Intent.EXTRA_EMAIL, new String[] {"kiriakopoulos44@gmail.com"});
+        intent.putExtra(Intent.EXTRA_EMAIL, new String[] {"droid.hijacker@gmail.com"});
         intent.putExtra(Intent.EXTRA_SUBJECT, "Hijacker bug report");
         Uri attachment = FileProvider.getUriForFile(this, BuildConfig.APPLICATION_ID + ".provider", report);
         intent.putExtra(Intent.EXTRA_STREAM, attachment);

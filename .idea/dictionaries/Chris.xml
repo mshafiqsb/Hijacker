@@ -14,6 +14,7 @@
       <w>deauthentication</w>
       <w>essid</w>
       <w>iface</w>
+      <w>kyriakopoulos</w>
       <w>lastfile</w>
       <w>libnative</w>
       <w>manuf</w>
@@ -22,6 +23,8 @@
       <w>textview</w>
       <w>textviews</w>
       <w>toolchains</w>
+      <w>wordlist</w>
+      <w>wordlists</w>
     </words>
   </dictionary>
 </component>

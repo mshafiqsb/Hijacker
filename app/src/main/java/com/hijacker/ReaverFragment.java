@@ -1,7 +1,7 @@
 package com.hijacker;
 
 /*
-    Copyright (C) 2016  Christos Kyriakopoylos
+    Copyright (C) 2019  Christos Kyriakopoulos
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -65,6 +65,7 @@ import static com.hijacker.MainActivity.iface;
 import static com.hijacker.MainActivity.last_action;
 import static com.hijacker.MainActivity.mFragmentManager;
 import static com.hijacker.MainActivity.monstart;
+import static com.hijacker.MainActivity.notification;
 import static com.hijacker.MainActivity.prefix;
 import static com.hijacker.MainActivity.progress;
 import static com.hijacker.MainActivity.reaver_dir;
@@ -73,33 +74,39 @@ import static com.hijacker.MainActivity.runInHandler;
 import static com.hijacker.MainActivity.stop;
 
 public class ReaverFragment extends Fragment{
-    View fragmentView;
-    static View optionsContainer;
-    static Button start_button, select_button;
+    static ReaverTask task;
+
+    View fragmentView, optionsContainer;
+    Button start_button, select_button;
     TextView consoleView;
     EditText pinDelayView, lockedDelayView;
     CheckBox pixie_dust_cb, ignored_locked_cb, eap_fail_cb, small_dh_cb, no_nack_cb;
     ScrollView consoleScrollView;
-    static ReaverTask task;
-    static String console_text = null, pin_delay="1", locked_delay="60", custom_mac=null;       //delays are always used as strings
-    static boolean pixie_dust, ignore_locked, eap_fail, small_dh, no_nack;
-    static AP ap=null;
+    boolean autostart = false;
+
+    //Dimensions to restore animated views
+    int normalOptHeight = -1;
+    //User options
+    static String console_text = "", pin_delay="1", locked_delay="60", custom_mac=null;       //delays are always used as strings
+    static boolean pixie_dust_enabled = true, pixie_dust, ignore_locked, eap_fail, small_dh, no_nack;
+    static AP ap = null;
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState){
         fragmentView = inflater.inflate(R.layout.reaver_fragment, container, false);
         setRetainInstance(true);
 
-        consoleView = (TextView)fragmentView.findViewById(R.id.console);
-        consoleScrollView = (ScrollView)fragmentView.findViewById(R.id.console_scroll_view);
-        pinDelayView = (EditText)fragmentView.findViewById(R.id.pin_delay);
-        lockedDelayView = (EditText)fragmentView.findViewById(R.id.locked_delay);
-        pixie_dust_cb = (CheckBox)fragmentView.findViewById(R.id.pixie_dust);
-        ignored_locked_cb = (CheckBox)fragmentView.findViewById(R.id.ignore_locked);
-        eap_fail_cb = (CheckBox)fragmentView.findViewById(R.id.eap_fail);
-        small_dh_cb = (CheckBox)fragmentView.findViewById(R.id.small_dh);
-        no_nack_cb = (CheckBox)fragmentView.findViewById(R.id.no_nack);
-        select_button = (Button)fragmentView.findViewById(R.id.select_ap);
-        start_button = (Button)fragmentView.findViewById(R.id.start_button);
+        optionsContainer = fragmentView.findViewById(R.id.options_container);
+        consoleView = fragmentView.findViewById(R.id.console);
+        consoleScrollView = fragmentView.findViewById(R.id.console_scroll_view);
+        pinDelayView = fragmentView.findViewById(R.id.pin_delay);
+        lockedDelayView = fragmentView.findViewById(R.id.locked_delay);
+        pixie_dust_cb = fragmentView.findViewById(R.id.pixie_dust);
+        ignored_locked_cb = fragmentView.findViewById(R.id.ignore_locked);
+        eap_fail_cb = fragmentView.findViewById(R.id.eap_fail);
+        small_dh_cb = fragmentView.findViewById(R.id.small_dh);
+        no_nack_cb = fragmentView.findViewById(R.id.no_nack);
+        select_button = fragmentView.findViewById(R.id.select_ap);
+        start_button = fragmentView.findViewById(R.id.start_button);
 
         pinDelayView.setOnEditorActionListener(new TextView.OnEditorActionListener(){
             @Override
@@ -117,9 +124,13 @@ public class ReaverFragment extends Fragment{
         int chroot_check = checkChroot();
         if(chroot_check!=CHROOT_FOUND){
             pixie_dust_cb.setEnabled(false);
+            pixie_dust_enabled = false;
             if(chroot_check==CHROOT_DIR_MISSING) Toast.makeText(getActivity(), getString(R.string.chroot_notfound), LENGTH_SHORT).show();
             else if(chroot_check==CHROOT_BIN_MISSING) Toast.makeText(getActivity(), getString(R.string.kali_notfound), LENGTH_SHORT).show();
             else Toast.makeText(getActivity(), getString(R.string.chroot_both_notfound), LENGTH_SHORT).show();
+        }else{
+            pixie_dust_cb.setEnabled(true);
+            pixie_dust_enabled = true;
         }
 
         select_button.setOnClickListener(new View.OnClickListener(){
@@ -168,7 +179,6 @@ public class ReaverFragment extends Fragment{
                 popup.show();
             }
         });
-
         start_button.setOnClickListener(new View.OnClickListener(){
             @Override
             public void onClick(View view){
@@ -180,29 +190,6 @@ public class ReaverFragment extends Fragment{
                 }
             }
         });
-
-        //Restore view
-        consoleView.setText(console_text);
-        consoleView.post(new Runnable() {
-            @Override
-            public void run() {
-                consoleScrollView.fullScroll(View.FOCUS_DOWN);
-            }
-        });
-        pinDelayView.setText(pin_delay);
-        lockedDelayView.setText(locked_delay);
-        pixie_dust_cb.setChecked(pixie_dust);
-        ignored_locked_cb.setChecked(ignore_locked);
-        eap_fail_cb.setChecked(eap_fail);
-        small_dh_cb.setChecked(small_dh);
-        no_nack_cb.setChecked(no_nack);
-        if(custom_mac!=null) select_button.setText(custom_mac);
-        else if(ap!=null) select_button.setText(ap.toString());
-        else if(!AP.marked.isEmpty()){
-            ap = AP.marked.get(AP.marked.size()-1);
-            select_button.setText(ap.toString());
-        }
-        start_button.setText(task.getStatus()==AsyncTask.Status.RUNNING ? R.string.stop : R.string.start);
 
         return fragmentView;
     }
@@ -228,6 +215,10 @@ public class ReaverFragment extends Fragment{
             task.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
         }
     }
+    ReaverFragment setAutostart(boolean autostart){
+        this.autostart = autostart;
+        return this;
+    }
     static boolean isRunning(){
         if(task==null) return false;
         return task.getStatus()==AsyncTask.Status.RUNNING;
@@ -244,27 +235,65 @@ public class ReaverFragment extends Fragment{
         super.onResume();
         currentFragment = FRAGMENT_REAVER;
         refreshDrawer();
+
+        //Console text is saved/restored on pause/resume
+        consoleView.setText(console_text);
+        consoleView.post(new Runnable() {
+            @Override
+            public void run() {
+                consoleScrollView.fullScroll(View.FOCUS_DOWN);
+            }
+        });
     }
     @Override
     public void onPause(){
         super.onPause();
+
+        //Console text is saved/restored on pause/resume
         console_text = consoleView.getText().toString();
-        pin_delay = pinDelayView.getText().toString();
-        locked_delay = lockedDelayView.getText().toString();
-        pixie_dust = pixie_dust_cb.isChecked();
-        ignore_locked = ignored_locked_cb.isChecked();
-        eap_fail = eap_fail_cb.isChecked();
-        small_dh = small_dh_cb.isChecked();
-        no_nack = no_nack_cb.isChecked();
     }
     @Override
     public void onStart(){
         super.onStart();
-        optionsContainer = fragmentView.findViewById(R.id.options_container);
+
+        //Restore options
+        pinDelayView.setText(pin_delay);
+        lockedDelayView.setText(locked_delay);
+        pixie_dust_cb.setChecked(pixie_dust);
+        pixie_dust_cb.setEnabled(pixie_dust_enabled);
+        ignored_locked_cb.setChecked(ignore_locked);
+        eap_fail_cb.setChecked(eap_fail);
+        small_dh_cb.setChecked(small_dh);
+        no_nack_cb.setChecked(no_nack);
+        if(custom_mac!=null) select_button.setText(custom_mac);
+        else if(ap!=null) select_button.setText(ap.toString());
+        else if(!AP.marked.isEmpty()){
+            ap = AP.marked.get(AP.marked.size()-1);
+            select_button.setText(ap.toString());
+        }
+        start_button.setText(isRunning() ? R.string.stop : R.string.start);
+
+        //Restore animated views
         if(task.getStatus()==AsyncTask.Status.RUNNING){
             ViewGroup.LayoutParams layoutParams = optionsContainer.getLayoutParams();
             layoutParams.height = 0;
             optionsContainer.setLayoutParams(layoutParams);
+        }else if(normalOptHeight!=-1){
+            ViewGroup.LayoutParams params = optionsContainer.getLayoutParams();
+            params.height = normalOptHeight;
+            optionsContainer.setLayoutParams(params);
+
+            consoleScrollView.fullScroll(View.FOCUS_DOWN);
+        }
+
+        if(autostart){
+            optionsContainer.post(new Runnable(){
+                @Override
+                public void run(){
+                    attemptStart();
+                }
+            });
+            autostart = false;
         }
     }
     @Override
@@ -274,8 +303,17 @@ public class ReaverFragment extends Fragment{
                 task.sizeAnimator.cancel();
             }
         }
-        //Avoid memory leak
-        optionsContainer = null;
+
+        //Backup options
+        pin_delay = pinDelayView.getText().toString();
+        locked_delay = lockedDelayView.getText().toString();
+        pixie_dust = pixie_dust_cb.isChecked();
+        pixie_dust_enabled = pixie_dust_cb.isEnabled();
+        ignore_locked = ignored_locked_cb.isChecked();
+        eap_fail = eap_fail_cb.isChecked();
+        small_dh = small_dh_cb.isChecked();
+        no_nack = no_nack_cb.isChecked();
+
         super.onStop();
     }
     static String get_chroot_env(final Activity activity){
@@ -317,7 +355,6 @@ public class ReaverFragment extends Fragment{
     class ReaverTask extends AsyncTask<Void, String, Boolean>{
         String pinDelay, lockedDelay;
         boolean ignoreLocked, eapFail, smallDH, pixieDust, noNack;
-        int prevOptContainerHeight = -1;
         ValueAnimator sizeAnimator;
         @Override
         protected void onPreExecute(){
@@ -332,7 +369,7 @@ public class ReaverFragment extends Fragment{
             start_button.setText(R.string.stop);
             progress.setIndeterminate(true);
 
-            prevOptContainerHeight = optionsContainer.getHeight();
+            normalOptHeight = optionsContainer.getHeight();
 
             sizeAnimator = ValueAnimator.ofInt(optionsContainer.getHeight(), 0);
             sizeAnimator.setTarget(optionsContainer);
@@ -345,10 +382,7 @@ public class ReaverFragment extends Fragment{
                 }
             });
             sizeAnimator.setInterpolator(new AccelerateDecelerateInterpolator());
-
-            if(optionsContainer!=null) {
-                sizeAnimator.start();
-            }
+            sizeAnimator.start();
         }
         @Override
         protected Boolean doInBackground(Void... params){
@@ -373,7 +407,7 @@ public class ReaverFragment extends Fragment{
                     }
                     args += " -K 1";
                     cmd = "chroot " + MainActivity.chroot_dir + " /bin/bash -c \'" + get_chroot_env(getActivity()) + "reaver " + args + "\'";
-                    publishProgress("\nRunning: " + cmd + '\n');
+                    publishProgress("\nRunning: " + cmd);
                     ProcessBuilder pb = new ProcessBuilder("su");
                     pb.redirectErrorStream(true);
                     Process dc = pb.start();
@@ -383,7 +417,7 @@ public class ReaverFragment extends Fragment{
                     in.flush();
                 }else{
                     cmd = "su -c " + prefix + " " + reaver_dir + " " + args;
-                    publishProgress("Running: " + cmd);
+                    publishProgress("\nRunning: " + cmd);
                     Process dc = Runtime.getRuntime().exec(cmd);
                     out = new BufferedReader(new InputStreamReader(dc.getInputStream()));
                 }
@@ -393,7 +427,7 @@ public class ReaverFragment extends Fragment{
                 while(!isCancelled() && (buffer = out.readLine())!=null){
                     publishProgress(buffer);
                 }
-                publishProgress("\nDone\n");
+                publishProgress("Done");
             }catch(IOException e){
                 Log.e("HIJACKER/Exception", "Caught Exception in ReaverFragment: " + e.toString());
             }
@@ -402,11 +436,12 @@ public class ReaverFragment extends Fragment{
         }
         @Override
         protected void onProgressUpdate(String... text){
+            text[0] += '\n';
             if(currentFragment==FRAGMENT_REAVER && !background){
-                consoleView.append(text[0] + '\n');
+                consoleView.append(text[0]);
                 consoleScrollView.fullScroll(View.FOCUS_DOWN);
             }else{
-                console_text += text[0] + '\n';
+                console_text += text[0];
             }
         }
         @Override
@@ -421,7 +456,7 @@ public class ReaverFragment extends Fragment{
             start_button.setText(R.string.start);
             progress.setIndeterminate(false);
 
-            sizeAnimator = ValueAnimator.ofInt(0, prevOptContainerHeight);
+            sizeAnimator = ValueAnimator.ofInt(0, normalOptHeight);
             sizeAnimator.setTarget(optionsContainer);
             sizeAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener(){
                 @Override
@@ -444,10 +479,9 @@ public class ReaverFragment extends Fragment{
                 public void onAnimationRepeat(Animator animation){}
             });
             sizeAnimator.setInterpolator(new AccelerateDecelerateInterpolator());
+            sizeAnimator.start();
 
-            if(optionsContainer!=null) {
-                sizeAnimator.start();
-            }
+            notification();
         }
     }
 }

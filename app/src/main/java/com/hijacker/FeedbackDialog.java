@@ -1,7 +1,7 @@
 package com.hijacker;
 
 /*
-    Copyright (C) 2017  Christos Kyriakopoylos
+    Copyright (C) 2019  Christos Kyriakopoulos
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -53,9 +53,9 @@ public class FeedbackDialog extends DialogFragment{
         AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
         dialogView = getActivity().getLayoutInflater().inflate(R.layout.feedback_dialog, null);
 
-        include_report = (CheckBox)dialogView.findViewById(R.id.include_report);
-        feedbackView = (EditText)dialogView.findViewById(R.id.feedback_et);
-        progress = (ProgressBar)dialogView.findViewById(R.id.progress);
+        include_report = dialogView.findViewById(R.id.include_report);
+        feedbackView = dialogView.findViewById(R.id.feedback_et);
+        progress = dialogView.findViewById(R.id.progress);
 
         report = null;
         include_report.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener(){

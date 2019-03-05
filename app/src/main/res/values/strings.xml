@@ -5,12 +5,11 @@
     <string name="stop_aireplay">Stop Aireplay</string>
 
     <!-- Generic text -->
-    <string name="incorrect_arch">Available only on armv7l, this is</string>
+    <string name="incorrect_arch">Available only on armv7l and aarch64, this is</string>
     <string name="close">Close</string>
     <string name="cancel">Cancel</string>
     <string name="back">Back</string>
     <string name="install">Install</string>
-    <string name="find_firmware">Find Firmware</string>
     <string name="yes">Yes</string>
     <string name="no">No</string>
     <string name="error">Error</string>
@@ -24,7 +23,20 @@
     <string name="settings">Settings</string>
     <string name="select">Select</string>
     <string name="download">Download</string>
+    <string name="size">Size</string>
+    <string name="no_internet">No internet connection</string>
     <string name="unknown_error">An unknown error occurred</string>
+
+    <!-- Navigation Drawer -->
+    <string name="nav_airodump">Airodump</string>
+    <string name="nav_mdk3">MDK3</string>
+    <string name="nav_reaver">Reaver</string>
+    <string name="nav_crack">Crack .cap file</string>
+    <string name="nav_custom_actions">Custom Actions</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- AP -->
+    <string name="reaver_already_running">Reaver is already running</string>
 
     <!-- APDialog (xml) -->
     <string name="mac">MAC:</string>
@@ -49,6 +61,7 @@
     <string name="path_to_cap">.cap file</string>
     <string name="path_to_wordlist">Wordlist</string>
     <string name="start">Start</string>
+    <string name="speed_test">Speed Test</string>
     <string name="wordlist_notfound">Wordlist not found</string>
     <string name="select_wpa_wep">Please select WPA/WEP</string>
     <string name="select_wep_bits">Select how many bits the key is</string>
@@ -128,7 +141,7 @@
     <string name="show_ap">Show Access Points</string>
     <string name="show_st">Show Stations</string>
     <string name="show_st_na">Show non-associated stations</string>
-    <string name="channels">Channels:</string>
+    <string name="channels">2.4Ghz Channels:</string>
     <string name="all">All</string>
     <string name="opn">OPN</string>
     <string name="sort">Sort:</string>
@@ -152,16 +165,19 @@
     <string name="install_firmware">Install Nexmon</string>
 
     <!-- InstallFirmwareDialog -->
-    <string name="dir_notfound">Directory doesn\'t exist</string>
-    <string name="firm_notfound">There is no fw_bcmdhd.bin in here</string>
+    <string name="firmware_location">Firmware Location:</string>
+    <string name="device_chipset">Device Chipset:</string>
+    <string name="util_location_text">Management Utility:</string>
+    <string name="firmware_not_found">Firmware (fw_bcmdhd.bin) not found</string>
+    <string name="none_found">None found</string>
     <string name="backup_exists">A backup already exists</string>
     <string name="backup_created">Backup created</string>
     <string name="installed_firm_util">Installed firmware and utility</string>
-    <string name="firm_notfound_bcm">Firmware not found. Are you sure you have BCM4339?</string>
     <string name="create_backup">Create Backup</string>
-    <string name="fw_not_compatible">Your device does not seem to be compatible with Nexmon (BCM4339). Long click to override.</string>
-    <string name="path_contains_system">Modifying the system partition can brick some devices. Long click to override.</string>
+    <string name="error_extracting_files">There was an error while extracting the files</string>
     <string name="field_required">This field is required</string>
+    <string name="restore">Restore</string>
+    <string name="restored">Backup restored</string>
 
     <!-- IsolatedFragment (xml) -->
     <string name="crack">Crack</string>
@@ -185,7 +201,7 @@
     <string name="bin_not_created">Directory \'bin\' could not be created</string>
     <string name="lib_not_created">Directory \'lib\' could not be created</string>
     <string name="not_armv7l">This device is not armv7l or aarch64 architecture. The included tools cannot be used.
-        You will have to install the tools manually: aircrack-ng suite, busybox, mdk3, reaver, wireless-tools and libfakeioctl.so (adjust the prefix for this)</string>
+        You will have to install the tools manually in a PATH accessible directory: aircrack-ng suite, busybox, mdk3, reaver, wireless-tools and libfakeioctl.so, and adjust the prefix for the library.</string>
         <!-- Notification -->
         <string name="notification_title">Hijacker is running in the background</string>
         <string name="watchdog_notif_title">Hijacker watchdog detected a problem</string>
@@ -205,10 +221,10 @@
     <string name="init_notifications">Initializing notifications…</string>
     <string name="loading_strings">Loading strings…</string>
     <string name="loading_custom_actions">Loading custom actions…</string>
+    <string name="detecting_device_chipset">Detecting device chipset…</string>
     <string name="setting_up_tools">Setting up tools…</string>
     <string name="init_rootFile">Initializing RootFile…</string>
     <string name="init_threads">Initializing threads…</string>
-    <string name="starting_threads">Starting threads…</string>
     <string name="starting_pers_service">Starting persistence service…</string>
     <string name="checking_permissions">Checking permissions…</string>
     <string name="loading_manuf_db">Loading manufacturer database…</string>
@@ -250,10 +266,6 @@
     <string name="locked_delay">Locked Delay</string>
     <string name="custom_chroot_cmd_illegal">The custom command can\'t contain the character \'</string>
 
-    <!-- RestoreFirmwareDialog -->
-    <string name="restore">Restore</string>
-    <string name="restored">Backup restored</string>
-
     <!-- SendLogActivity -->
     <string name="unexpected_error_title">Unexpected Error</string>
     <string name="unexpected_error_message">An unexpected error has occurred. A bug report has been generated in your external storage directory. It may contain sensitive information such as MAC addresses, aliases and device information. Check the file below before sending it.</string>
@@ -286,13 +298,19 @@
     <!-- UpdateConfirmDialog -->
     <string name="update_title">New update available</string>
     <string name="update_text">There is a new update available.</string>
+    <string name="latest_version">Latest Version</string>
+    <string name="current_version">Current Version</string>
+
+    <!-- WordlistDownloadDialog -->
+    <string name="wordlist_dialog_title">Select a wordlist to download</string>
+    <string name="cant_start_download">Can\'t start download</string>
+    <string name="no_permissions">No external storage or internet permission</string>
 
     <!-- Default Preferences -->
     <string name="iface" translatable="false">wlan0</string>
     <string name="prefix" translatable="false">LD_PRELOAD=/vendor/lib/libfakeioctl.so</string>
     <string name="chroot_dir" translatable="false">/data/local/nhsystem/kali-armhf</string>
     <string name="monstart" translatable="false">false</string>
-    <string name="cap_dir" translatable="false">/sdcard/cap</string>
     <string name="enable_monMode" translatable="false">nexutil -m true</string>
     <string name="disable_monMode" translatable="false">nexutil -m false</string>
     <string name="enable_on_airodump" translatable="false">true</string>
@@ -307,6 +325,8 @@
     <string name="watchdog" translatable="false">true</string>
     <string name="target_deauth" translatable="false">false</string>
     <string name="auto_update" translatable="false">true</string>
+    <string name="band" translatable="false">1</string>
+    <string name="show_client_count" translatable="false">true</string>
 
     <!-- Settings -->
 
@@ -317,9 +337,6 @@
     <string name="prefix_title">Prefix</string>
     <string name="prefix_sum">Prefix for every command</string>
     <string name="prefix_desc">A prefix for every command that is run and needs monitor mode. (LD_PRELOAD)</string>
-
-    <string name="cap_title">Cap files directory</string>
-    <string name="cap_sum">Directory to save .cap files</string>
 
     <string name="delete_extra_title">Delete extra cap files</string>
     <string name="delete_extra_sum">Delete .csv and .netxml files created by airodump when saving to .cap file</string>
@@ -336,6 +353,8 @@
 
     <string name="notif_details_title">Show details</string>
     <string name="notif_details_sum">Show additional details about running processes in notification</string>
+
+    <string name="show_client_count_title">Show AP\'s client count</string>
 
     <string name="debug_title">Logcat Messages</string>
     <string name="debug_sum">Print debugging messages to logcat. Messages about exceptions will be printed anyway.</string>
@@ -363,15 +382,13 @@
     <string name="enable_on_airodump_title">Enable on Airodump start</string>
     <string name="enable_on_airodump_sum">Run the \"Enable Monitor Mode\" command when starting airodump</string>
 
+    <string name="band_title">Band</string>
+    <string name="band_sum">Frequencies that airodump will hop on</string>
+
     <!-- Tools -->
     <string name="tools">Tools</string>
     <string name="install_nexmon_title">Install Nexmon</string>
     <string name="install_nexmon_sum">Install the Nexmon driver and its management utility</string>
-        <!-- xml -->
-        <string name="firm_location_text">Firmware Location</string>
-        <string name="util_location_text">Management Utility Location</string>
-        <string name="firm_location_default">/vendor/firmware</string>
-        <string name="util_location_default">/su/xbin</string>
 
     <string name="test_title">Test tools</string>
     <string name="test_sum">Run all the tools to make sure that the settings are correct. Any running tasks will be stopped.</string>
@@ -399,7 +416,6 @@
 
     <!-- Other -->
     <string name="other">Other</string>
-    <string name="restore_firmware">Restore firmware</string>
     <string name="reset_title">Reset Preferences</string>
     <string name="send_feedback_title">Send feedback</string>
     <string name="update_on_startup">Check for updates on startup</string>

@@ -1,7 +1,7 @@
 package com.hijacker;
 
 /*
-    Copyright (C) 2016  Christos Kyriakopoylos
+    Copyright (C) 2019  Christos Kyriakopoulos
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -43,25 +43,28 @@ import android.os.Handler;
 import android.os.Looper;
 import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
+import android.support.design.widget.NavigationView;
 import android.support.design.widget.Snackbar;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.NotificationCompat;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.util.JsonReader;
 import android.util.Log;
+import android.util.SparseArray;
+import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ImageView;
-import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -80,11 +83,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
-import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+
+import javax.net.ssl.HttpsURLConnection;
 
 import static com.hijacker.AP.getAPByMac;
 import static com.hijacker.CustomAction.TYPE_ST;
@@ -97,17 +101,21 @@ import static com.hijacker.Shell.runOne;
 
 public class MainActivity extends AppCompatActivity{
     static final String NETHUNTER_BOOTKALI_BASH = "/data/data/com.offsec.nethunter/files/scripts/bootkali_bash";
+    static final String RELEASES_LINK = "https://api.github.com/repos/chrisk44/Hijacker/releases";
+    static final String WORDLISTS_LINK = "https://api.github.com/repos/chrisk44/Hijacker/contents/wordlists";
     static final int BUFFER_SIZE = 1048576;
+    static final int MAX_READLINE_SIZE = 10000;
     static final int AIREPLAY_DEAUTH = 1, AIREPLAY_WEP = 2;
-    static final int FRAGMENT_AIRODUMP = 0, FRAGMENT_MDK = 1, FRAGMENT_CRACK = 2,
-            FRAGMENT_REAVER = 3, FRAGMENT_CUSTOM=4, FRAGMENT_SETTINGS = 5;                     //These need to correspond to the items in the drawer
+    static final int BAND_2 = 1, BAND_5 = 2, BAND_BOTH = 3;
+    static final int FRAGMENT_AIRODUMP = R.id.nav_airodump, FRAGMENT_MDK = R.id.nav_mdk3, FRAGMENT_CRACK = R.id.nav_crack,
+            FRAGMENT_REAVER = R.id.nav_reaver, FRAGMENT_CUSTOM = R.id.nav_custom_actions, FRAGMENT_SETTINGS = R.id.nav_settings;
     static final int PROCESS_AIRODUMP=0, PROCESS_AIREPLAY=1, PROCESS_MDK_BF=2, PROCESS_MDK_DOS=3, PROCESS_AIRCRACK=4, PROCESS_REAVER=5;
     static final int SORT_NOSORT = 0, SORT_ESSID = 1, SORT_BEACONS_FRAMES = 2, SORT_DATA_FRAMES = 3, SORT_PWR = 4;
     static final int CHROOT_FOUND = 0, CHROOT_BIN_MISSING = 1, CHROOT_DIR_MISSING = 2, CHROOT_BOTH_MISSING = 3;
     //State variables
     static boolean wpacheckcont = false;
     static boolean notif_on = false, background = false;    //notif_on: notification should be shown, background: the app is running in the background
-    static int aireplay_running = 0, currentFragment=FRAGMENT_AIRODUMP;         //Set currentFragment in onResume of each Fragment
+    static int aireplay_running = 0, currentFragment = FRAGMENT_AIRODUMP;         //Set currentFragment in onResume of each Fragment
     //Filters
     static boolean show_ap = true, show_st = true, show_na_st = true, wpa = true, wep = true, opn = true;
     static boolean show_ch[] = {true, false, false, false, false, false, false, false, false, false, false, false, false, false, false};
@@ -123,8 +131,8 @@ public class MainActivity extends AppCompatActivity{
     static Toolbar toolbar;
     static View rootView;
     static DrawerLayout mDrawerLayout;
-    static ListView mDrawerList;
-    static String[] mPlanetTitles;
+    static NavigationView navigationView;
+    static SparseArray<String> navTitlesMap = new SparseArray<>();             //SparseArray to map fragment IDs to their respective navigation titles
     static Drawable overflow[] = {null, null, null, null, null, null, null, null};      //Drawables to use for overflow button icon
     static ImageView status[] = {null, null, null, null, null};                         //Icons in TestDialog, set in TestDialog class
     static int progress_int;
@@ -141,7 +149,7 @@ public class MainActivity extends AppCompatActivity{
     static NotificationCompat.Builder notif, error_notif, handshake_notif;
     static NotificationManager mNotificationManager;
     static FragmentManager mFragmentManager;
-    static String path, data_path, actions_path, firm_backup_file, manufDBFile, arch, busybox;             //path: App files path (ends with .../files)
+    static String path, data_path, actions_path, wl_path, cap_path, firm_backup_file, manufDBFile, arch, busybox;             //path: App files path (ends with .../files)
     static File aliases_file;
     static FileWriter aliases_in;
     static final HashMap<String, String> aliases = new HashMap<>();
@@ -149,18 +157,23 @@ public class MainActivity extends AppCompatActivity{
     //App and device info
     static String versionName, deviceModel;
     static int versionCode;
-    static boolean init=false;      //True on first run to swap the dialogs for initialization
+    static String devChipset = "";
+    static boolean init = false;      //True on first run to swap the dialogs for initialization
     static ActionBar actionBar;
     static String bootkali_init_bin = "bootkali_init";
     //Preferences - Defaults are in strings.xml
-    static String iface, prefix, airodump_dir, aireplay_dir, aircrack_dir, mdk3bf_dir, mdk3dos_dir, reaver_dir, cap_dir, chroot_dir,
+    static String iface, prefix, airodump_dir, aireplay_dir, aircrack_dir, mdk3bf_dir, mdk3dos_dir, reaver_dir, chroot_dir,
             enable_monMode, disable_monMode, custom_chroot_cmd;
-    static int deauthWait;
-    static boolean show_notif, show_details, airOnStartup, debug, delete_extra,
+    static int deauthWait, band;
+    static boolean show_notif, show_details, airOnStartup, debug, delete_extra, show_client_count,
             monstart, always_cap, cont_on_fail, watchdog, target_deauth, enable_on_airodump, update_on_startup;
 
     private GoogleApiClient client;
     WatchdogTask watchdogTask;
+
+    ReaverFragment reaverFragment = new ReaverFragment();
+    CrackFragment crackFragment = new CrackFragment();
+    CustomActionFragment customActionFragment = new CustomActionFragment();
     @Override
     protected void onCreate(Bundle savedInstanceState){
         super.onCreate(savedInstanceState);
@@ -191,7 +204,6 @@ public class MainActivity extends AppCompatActivity{
         file_explorer_adapter = new FileExplorerAdapter();
         file_explorer_adapter.setNotifyOnChange(true);
         setContentView(R.layout.activity_main);
-        setSupportActionBar((Toolbar) findViewById(R.id.my_toolbar));
 
         //Google AppIndex
         client = new GoogleApiClient.Builder(MainActivity.this).addApi(AppIndex.API).build();
@@ -221,13 +233,64 @@ public class MainActivity extends AppCompatActivity{
             loadingDialog.show(getFragmentManager(), "LoadingDialog");
 
             //Initialize the drawer
-            mPlanetTitles = getResources().getStringArray(R.array.planets_array);
-            mDrawerLayout = (DrawerLayout) findViewById(R.id.drawer_layout);
-            mDrawerList = (ListView) findViewById(R.id.left_drawer);
-            mDrawerList.setAdapter(new ArrayAdapter<>(MainActivity.this, R.layout.drawer_list_item, R.id.navDrawerTv, mPlanetTitles));
-            mDrawerList.setOnItemClickListener(new DrawerItemClickListener());
-            toolbar = (Toolbar) findViewById(R.id.my_toolbar);
+            mDrawerLayout = findViewById(R.id.drawer_layout);
+            navigationView = findViewById(R.id.nav_view);
+            navigationView.getMenu().getItem(0).setChecked(true);
+            navigationView.setNavigationItemSelectedListener(
+                    new NavigationView.OnNavigationItemSelectedListener() {
+                        @Override
+                        public boolean onNavigationItemSelected(MenuItem menuItem) {
+                            // set item as selected to persist highlight
+                            menuItem.setChecked(true);
+                            // close drawer when item is tapped
+                            mDrawerLayout.closeDrawers();
+
+                            if(currentFragment!=menuItem.getItemId()){
+                                FragmentTransaction ft = mFragmentManager.beginTransaction();
+                                switch(menuItem.getItemId()){
+                                    case FRAGMENT_AIRODUMP:
+                                        ft.replace(R.id.fragment1, is_ap==null ? new MyListFragment() : new IsolatedFragment());
+                                        break;
+                                    case FRAGMENT_MDK:
+                                        ft.replace(R.id.fragment1, new MDKFragment());
+                                        break;
+                                    case FRAGMENT_REAVER:
+                                        ft.replace(R.id.fragment1, reaverFragment);
+                                        break;
+                                    case FRAGMENT_CRACK:
+                                        ft.replace(R.id.fragment1, crackFragment);
+                                        break;
+                                    case FRAGMENT_CUSTOM:
+                                        ft.replace(R.id.fragment1, customActionFragment);
+                                        break;
+                                    case FRAGMENT_SETTINGS:
+                                        ft.replace(R.id.fragment1, new SettingsFragment());
+                                        break;
+                                }
+                                ft.setTransition(FragmentTransaction.TRANSIT_FRAGMENT_OPEN);
+                                ft.addToBackStack(null);
+                                ft.commitAllowingStateLoss();
+                                mFragmentManager.executePendingTransactions();
+                            }
+
+                            actionBar.setTitle(navTitlesMap.get(currentFragment));
+
+                            return true;
+                        }
+                    });
+
+            //Initialize toolbar
+            toolbar = findViewById(R.id.my_toolbar);
+            setSupportActionBar(toolbar);
             toolbar.setOverflowIcon(overflow[0]);
+
+            ActionBar actionbar = getSupportActionBar();
+            if(actionbar!=null){
+                actionbar.setDisplayHomeAsUpEnabled(true);
+                actionbar.setHomeAsUpIndicator(R.drawable.ic_menu);
+            }else{
+                Log.e("HIJACKER/SetupPreEx", "actionbar is null");
+            }
         }
         @Override
         protected Boolean doInBackground(Void... params){
@@ -252,13 +315,14 @@ public class MainActivity extends AppCompatActivity{
             deviceModel = Build.MODEL;
             if(!deviceModel.startsWith(Build.MANUFACTURER)) deviceModel = Build.MANUFACTURER + " " + deviceModel;
             deviceModel = deviceModel.replace(" ", "_");
+            //devChipset is set later because busybox needs to be extracted
             arch = System.getProperty("os.arch");
 
             //Find views
             publishProgress(getString(R.string.init_views));
-            ap_count = (TextView) findViewById(R.id.ap_count);
-            st_count = (TextView) findViewById(R.id.st_count);
-            progress = (ProgressBar) findViewById(R.id.progressBar);
+            ap_count = findViewById(R.id.ap_count);
+            st_count = findViewById(R.id.st_count);
+            progress = findViewById(R.id.progressBar);
             rootView = findViewById(R.id.fragment1);
             overflow[0] = getDrawable(R.drawable.overflow0);
             overflow[1] = getDrawable(R.drawable.overflow1);
@@ -274,7 +338,6 @@ public class MainActivity extends AppCompatActivity{
             publishProgress(getString(R.string.loading_defaults));
             iface = getString(R.string.iface);
             prefix = getString(R.string.prefix);
-            cap_dir = getString(R.string.cap_dir);
             enable_monMode = getString(R.string.enable_monMode);
             disable_monMode = getString(R.string.disable_monMode);
             enable_on_airodump = Boolean.parseBoolean(getString(R.string.enable_on_airodump));
@@ -292,6 +355,8 @@ public class MainActivity extends AppCompatActivity{
             watchdog = Boolean.parseBoolean(getString(R.string.watchdog));
             target_deauth = Boolean.parseBoolean(getString(R.string.target_deauth));
             update_on_startup = Boolean.parseBoolean(getString(R.string.auto_update));
+            band = Integer.parseInt(getString(R.string.band));
+            show_client_count = Boolean.parseBoolean(getString(R.string.show_client_count));
 
             //Load preferences
             publishProgress(getString(R.string.loading_preferences));
@@ -302,24 +367,42 @@ public class MainActivity extends AppCompatActivity{
             path = getFilesDir().getAbsolutePath();
             data_path = Environment.getExternalStorageDirectory() + "/Hijacker";
             actions_path = data_path + "/actions";
+            wl_path = data_path + "/wordlists";
+            cap_path = data_path + "/capture_files";
             firm_backup_file = data_path + "/fw_bcmdhd.orig.bin";
             manufDBFile = path + "/manuf.db";
-            File data_dir = new File(data_path);
-            if(!data_dir.exists()){
-                //Create directory, subdirectories and files
-                data_dir.mkdir();
-
-                //Move app files from other directories in /Hijacker
-                File firm_backup_old = new File(Environment.getExternalStorageDirectory() + "/fw_bcmdhd.orig.bin");
-                if(firm_backup_old.exists()){
-                    firm_backup_old.renameTo(new File(data_path + "/fw_bcmdhd.orig.bin"));
+            ArrayList<File> dirs = new ArrayList<>();
+            dirs.add(new File(data_path));
+            dirs.add(new File(actions_path));
+            dirs.add(new File(wl_path));
+            dirs.add(new File(cap_path));
+            for(File dir : dirs){
+                if(!dir.exists()){
+                    dir.mkdir();
                 }
+            }
+            //cap file directory used to be set by the user, so move everything to the new location
+            if(pref.contains("cap_dir")){
+                //Move capture files to new directory
+                String old_dir = pref.getString("cap_dir", null);
+                Toast.makeText(MainActivity.this, "Moving cap files from " + old_dir + " to " + cap_path, Toast.LENGTH_SHORT).show();
+                runOne(" mv " + old_dir + "/* " + cap_path + "/ && rmdir " + old_dir);
 
-                File actions_dir_old = new File(Environment.getExternalStorageDirectory() + "/Hijacker-actions");
-                if(actions_dir_old.exists()){
-                    actions_dir_old.renameTo(new File(actions_path));
-                }else{
-                    new File(data_dir + "/actions").mkdir();
+                pref_edit.remove("cap_dir");
+                pref_edit.apply();
+            }else{
+                //cap directory was never changed so there may be files in /sdcard/cap/
+                File old_dir = new File("/sdcard/cap");
+                if(old_dir.exists() && old_dir.isDirectory()){
+                    File files[] = old_dir.listFiles();
+                    if(files!=null){
+                        Toast.makeText(MainActivity.this, "Moving cap files from " + old_dir.getAbsolutePath() + " to " + cap_path, Toast.LENGTH_LONG).show();
+                        for(File f : old_dir.listFiles()){
+                            //Move all the files to the new directory
+                            f.renameTo(new File(cap_path, f.getName()));
+                        }
+                    }
+                    old_dir.delete();
                 }
             }
 
@@ -370,7 +453,11 @@ public class MainActivity extends AppCompatActivity{
 
             //Setup tools
             publishProgress(getString(R.string.setting_up_tools));
-            if(arch.equals("armv7l") || arch.equals("aarch64")){
+            if(arch.equals("armv7l") || arch.equals("aarch64")) {
+                String tools_location = path + "/bin/";
+                String lib_location = path + "/lib/";
+
+                //Create directories
                 File bin = new File(path + "/bin");
                 File lib = new File(path + "/lib");
                 if(!bin.exists()){
@@ -385,8 +472,14 @@ public class MainActivity extends AppCompatActivity{
                         return false;
                     }
                 }
+
+                //Extract busybox
+                extract("busybox", tools_location, true);
+                busybox = path + "/bin/busybox";
+
+                //Extract tools
                 boolean install = true;
-                if(bin.list().length==20 && lib.list().length==1 && info!=null){
+                if(bin.list().length==21 && lib.list().length==2 && info!=null){
                     if(info.versionCode==pref.getInt("tools_version", 0)){
                         if(debug) Log.d("HIJACKER/SetupTask", "Tools already installed");
                         install = false;
@@ -396,14 +489,11 @@ public class MainActivity extends AppCompatActivity{
                     }
                 }
                 if(install){
-                    String tools_location = path + "/bin/";
-                    String lib_location = path + "/lib/";
                     extract("airbase-ng", tools_location, true);
                     extract("aircrack-ng", tools_location, true);
                     extract("aireplay-ng", tools_location, true);
                     extract("airodump-ng", tools_location, true);
                     extract("besside-ng", tools_location, true);
-                    extract("busybox", tools_location, true);
                     extract("ivstools", tools_location, true);
                     extract("iw", tools_location, true);
                     extract("iwconfig", tools_location, true);
@@ -419,6 +509,7 @@ public class MainActivity extends AppCompatActivity{
                     extract("wesside-ng", tools_location, true);
                     extract("wpaclean", tools_location, true);
                     extract("libfakeioctl.so", lib_location, true);
+                    extract("libnexmon.so", lib_location, true);
 
                     runOne("cd " + path + "/bin; mv mdk3 mdk3bf; cp mdk3bf mdk3dos");
 
@@ -427,9 +518,43 @@ public class MainActivity extends AppCompatActivity{
                         pref_edit.apply();
                     }
                 }
-                busybox = path + "/bin/busybox";
 
-                prefix = "LD_PRELOAD=" + path + "/lib/libfakeioctl.so";
+                //Detect device chipset
+                publishProgress(getString(R.string.detecting_device_chipset));
+                Shell shell = getFreeShell();
+
+                String firmwarePath = findFirmwarePath(shell);
+                if(firmwarePath!=null){
+                    //Get chipset from firmware file
+                    shell.run("strings " + firmwarePath + " | " + busybox + " grep \"FWID:\"; echo ENDOFSTRINGS");
+                    devChipset = getLastLine(shell.getShell_out(), "ENDOFSTRINGS");
+                    int index = devChipset.indexOf('-');
+                    if(index != -1){
+                        devChipset = devChipset.substring(0, index);
+                    }
+                }
+                Log.i("HIJACKER/DetectDev", "devChipset is " + devChipset);
+                shell.done();
+
+                //Set directories
+                prefix = "LD_PRELOAD=" + path + "/lib/";
+                if(devChipset.startsWith("4339")) {
+                    //BCM4339
+                    prefix += "libfakeioctl.so";
+                }else if(devChipset.startsWith("4358")){
+                    //BCM4358
+                    prefix += "libnexmon.so";
+                }else{
+                    //Default (detected but not included)
+                    SettingsFragment.allow_prefix = true;       //Allow user to change the prefix
+                    prefix = pref.getString("prefix", null);    //Use user-set prefix
+
+                    if(prefix==null){
+                        //No user-set prefix, use default
+                        prefix = "LD_PRELOAD=" + path + "/lib/libfakeioctl.so";
+                    }
+                }
+
                 airodump_dir = path + "/bin/airodump-ng";
                 aireplay_dir = path + "/bin/aireplay-ng";
                 aircrack_dir = path + "/bin/aircrack-ng";
@@ -548,7 +673,7 @@ public class MainActivity extends AppCompatActivity{
                         runInHandler(new Runnable(){
                             @Override
                             public void run(){
-                                Button crack_btn = (Button) findViewById(R.id.crack);
+                                Button crack_btn = findViewById(R.id.crack);
                                 if(crack_btn!=null){
                                     //We are in IsolatedFragment
                                     crack_btn.setText(getString(R.string.crack));
@@ -562,7 +687,7 @@ public class MainActivity extends AppCompatActivity{
                                             public void onClick(View v){
                                                 CrackFragment.capfile_text = capfile;
                                                 FragmentTransaction ft = mFragmentManager.beginTransaction();
-                                                ft.replace(R.id.fragment1, new CrackFragment());
+                                                ft.replace(R.id.fragment1, MainActivity.this.crackFragment);
                                                 ft.setTransition(FragmentTransaction.TRANSIT_FRAGMENT_OPEN);
                                                 ft.addToBackStack(null);
                                                 ft.commitAllowingStateLoss();
@@ -583,26 +708,6 @@ public class MainActivity extends AppCompatActivity{
             };
             wpa_thread = new Thread(wpa_runnable);
             watchdogTask = new WatchdogTask(MainActivity.this);
-
-            //Start threads
-            publishProgress(getString(R.string.starting_threads));
-            new Thread(new Runnable(){      //Thread to wait until the drawer is initialized and then highlight airodump
-                @Override
-                public void run(){
-                    //Thread to wait for the drawer to be initialized, so that the first option (airodump) can be highlighted
-                    try{
-                        while(mDrawerList.getChildAt(0)==null){
-                            Thread.sleep(100);
-                        }
-                        runInHandler(new Runnable(){
-                            @Override
-                            public void run(){
-                                refreshDrawer();
-                            }
-                        });
-                    }catch(InterruptedException ignored){}
-                }
-            }).start();
 
             //Start background service so the app won't get killed if it goes to the background
             publishProgress(getString(R.string.starting_pers_service));
@@ -635,7 +740,7 @@ public class MainActivity extends AppCompatActivity{
                             String mac = buffer.substring(0, 6);
                             String manuf = buffer.substring(22);
                             if(manufHashMap.get(mac)==null){
-                                //Write to file only if it was added to the AVL (it's unique)
+                                //Write to file only if it was added to the HashMap (it's unique)
                                 manufHashMap.put(mac, manuf);
                                 in.write(mac + ";" + manuf + '\n');
                             }
@@ -669,6 +774,14 @@ public class MainActivity extends AppCompatActivity{
                     manufHashMap = null;
                 }
             }
+
+            //Load navigation titles to HashMap
+            navTitlesMap.put(R.id.nav_airodump, getString(R.string.nav_airodump));
+            navTitlesMap.put(R.id.nav_mdk3, getString(R.string.nav_mdk3));
+            navTitlesMap.put(R.id.nav_reaver, getString(R.string.nav_reaver));
+            navTitlesMap.put(R.id.nav_crack, getString(R.string.nav_crack));
+            navTitlesMap.put(R.id.nav_custom_actions, getString(R.string.nav_custom_actions));
+            navTitlesMap.put(R.id.nav_settings, getString(R.string.nav_settings));
 
             if(ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_EXTERNAL_STORAGE)==PackageManager.PERMISSION_GRANTED){
                 //Load custom actions
@@ -780,7 +893,6 @@ public class MainActivity extends AppCompatActivity{
     }
     public void main(){
         runOne(enable_monMode);
-        runOne("mkdir " + cap_dir);
 
         stop(PROCESS_AIRODUMP);
         stop(PROCESS_AIREPLAY);
@@ -825,7 +937,7 @@ public class MainActivity extends AppCompatActivity{
         //_startAireplay("--caffe-latte -b " + ap.mac);     //don't know where
     }
 
-    //There are 2 mdk3 binaries with different names, so the app can stop each one separately
+    //There are 2 mdk3 binaries with different names, so the app can easily stop each one separately
     public static void startBeaconFlooding(String str){
         try{
             String cmd = "su -c " + prefix + " " + mdk3bf_dir + " " + iface + " b -m ";
@@ -999,7 +1111,6 @@ public class MainActivity extends AppCompatActivity{
         deauthWait = Integer.parseInt(pref.getString("deauthWait", Integer.toString(deauthWait)));
         chroot_dir = pref.getString("chroot_dir", chroot_dir);
         monstart = pref.getBoolean("monstart", monstart);
-        cap_dir = pref.getString("cap_dir", cap_dir);
         enable_monMode = pref.getString("enable_monMode", enable_monMode);
         disable_monMode = pref.getString("disable_monMode", disable_monMode);
         enable_on_airodump = pref.getBoolean("enable_on_airodump", enable_on_airodump);
@@ -1019,6 +1130,9 @@ public class MainActivity extends AppCompatActivity{
         custom_chroot_cmd = pref.getString("custom_chroot_cmd", custom_chroot_cmd);
         cont_on_fail = pref.getBoolean("cont_on_fail", cont_on_fail);
         update_on_startup = pref.getBoolean("update_on_startup", update_on_startup);
+        band = Integer.parseInt(pref.getString("band", Integer.toString(band)));
+        show_client_count = pref.getBoolean("show_client_count", show_client_count);
+
         progress.setMax(deauthWait);
         progress.setProgress(deauthWait);
     }
@@ -1058,6 +1172,10 @@ public class MainActivity extends AppCompatActivity{
     @Override
     public boolean onOptionsItemSelected(MenuItem item){
         switch(item.getItemId()){
+            case android.R.id.home:
+                mDrawerLayout.openDrawer(GravityCompat.START);
+                return true;
+
             case R.id.reset:
                 stop(PROCESS_AIRODUMP);
                 Tile.clear();
@@ -1096,6 +1214,35 @@ public class MainActivity extends AppCompatActivity{
                 return super.onOptionsItemSelected(item);
         }
     }
+    // See https://g.co/AppIndexing/AndroidStudio for more information.
+    @Override
+    public void onStart(){
+        super.onStart();
+        client.connect();
+        AppIndex.AppIndexApi.start(client, getIndexApiAction());
+    }
+    @Override
+    protected void onResume(){
+        super.onResume();
+        notif_on = false;
+        background = false;
+        if(mNotificationManager!=null) mNotificationManager.cancelAll();
+    }
+    @Override
+    protected void onPause(){
+        super.onPause();
+        background = true;
+    }
+    @Override
+    protected void onStop(){
+        super.onStop();
+        AppIndex.AppIndexApi.end(client, getIndexApiAction());
+        client.disconnect();
+        if(show_notif){
+            notif_on = true;
+            notification();
+        }
+    }
     @Override
     protected void onDestroy(){
         notif_on = false;
@@ -1116,28 +1263,10 @@ public class MainActivity extends AppCompatActivity{
         System.exit(0);
     }
     @Override
-    protected void onResume(){
-        super.onResume();
-        notif_on = false;
-        background = false;
-        if(mNotificationManager!=null) mNotificationManager.cancelAll();
-    }
-    @Override
-    protected void onStop(){
-        super.onStop();
-        AppIndex.AppIndexApi.end(client, getIndexApiAction());
-        background = true;
-        if(show_notif){
-            notif_on = true;
-            notification();
-        }
-        client.disconnect();
-    }
-    @Override
     public boolean onKeyDown(int keyCode, KeyEvent event){
         if(keyCode==KeyEvent.KEYCODE_BACK){
-            if(mDrawerLayout.isDrawerOpen(mDrawerList)){
-                mDrawerLayout.closeDrawer(mDrawerList);
+            if(mDrawerLayout.isDrawerOpen(Gravity.START)){
+                mDrawerLayout.closeDrawers();
             }else if(mFragmentManager.getBackStackEntryCount()>1){
                 mFragmentManager.popBackStackImmediate();
             }else{
@@ -1174,52 +1303,12 @@ public class MainActivity extends AppCompatActivity{
         //No call for super(), avoid IllegalStateException on FragmentManagerImpl.checkStateLoss.
     }
 
-    // See https://g.co/AppIndexing/AndroidStudio for more information.
-    @Override
-    public void onStart(){
-        super.onStart();
-        client.connect();
-        AppIndex.AppIndexApi.start(client, getIndexApiAction());
-    }
     public Action getIndexApiAction(){
         Thing object = new Thing.Builder().setName("Hijacker")
                 .setUrl(Uri.parse("https://github.com/chrisk44/Hijacker")).build();
         return new Action.Builder(Action.TYPE_VIEW).setObject(object).setActionStatus(Action.STATUS_TYPE_COMPLETED).build();
     }
 
-    private class DrawerItemClickListener implements ListView.OnItemClickListener {
-        @Override
-        public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-            if(currentFragment!=position){
-                FragmentTransaction ft = mFragmentManager.beginTransaction();
-                switch(position){
-                    case FRAGMENT_AIRODUMP:
-                        ft.replace(R.id.fragment1, is_ap==null ? new MyListFragment() : new IsolatedFragment());
-                        break;
-                    case FRAGMENT_MDK:
-                        ft.replace(R.id.fragment1, new MDKFragment());
-                        break;
-                    case FRAGMENT_CRACK:
-                        ft.replace(R.id.fragment1, new CrackFragment());
-                        break;
-                    case FRAGMENT_REAVER:
-                        ft.replace(R.id.fragment1, new ReaverFragment());
-                        break;
-                    case FRAGMENT_CUSTOM:
-                        ft.replace(R.id.fragment1, new CustomActionFragment());
-                        break;
-                    case FRAGMENT_SETTINGS:
-                        ft.replace(R.id.fragment1, new SettingsFragment());
-                        break;
-                }
-                ft.setTransition(FragmentTransaction.TRANSIT_FRAGMENT_OPEN);
-                ft.addToBackStack(null);
-                ft.commitAllowingStateLoss();
-                mFragmentManager.executePendingTransactions();
-            }
-            mDrawerLayout.closeDrawer(mDrawerList);
-        }
-    }
     class MyListAdapter extends ArrayAdapter<Tile>{
         MyListAdapter(){
             super(MainActivity.this, R.layout.listitem);
@@ -1237,26 +1326,36 @@ public class MainActivity extends AppCompatActivity{
             // find the item to work with
             Tile current = Tile.tiles.get(position);
 
-            TextView upperLeft = (TextView) itemview.findViewById(R.id.upperLeft);
+            TextView upperLeft = itemview.findViewById(R.id.upperLeft);
             upperLeft.setText(current.device.upperLeft);
             upperLeft.setTextColor(ContextCompat.getColor(getContext(), current.device.isMarked ? R.color.colorAccent : android.R.color.white));
 
-            TextView lowerLeft = (TextView) itemview.findViewById(R.id.lowerLeft);
+            TextView lowerLeft = itemview.findViewById(R.id.lowerLeft);
             lowerLeft.setText(current.device.lowerLeft);
 
-            TextView lowerRight = (TextView) itemview.findViewById(R.id.lowerRight);
+            TextView lowerRight = itemview.findViewById(R.id.lowerRight);
             lowerRight.setText(current.device.lowerRight);
 
-            TextView upperRight = (TextView) itemview.findViewById(R.id.upperRight);
+            TextView upperRight = itemview.findViewById(R.id.upperRight);
             upperRight.setText(current.device.upperRight);
 
-            //Image
-            ImageView iv = (ImageView) itemview.findViewById(R.id.iv);
+            //Image and count views
+            ImageView iv = itemview.findViewById(R.id.iv);
+            TextView icon_count_view = itemview.findViewById(R.id.icon_count_view);
             if(current.device instanceof AP){
                 if(((AP)current.device).isHidden) iv.setImageResource(R.drawable.ap_hidden);
                 else iv.setImageResource(R.drawable.ap2);
+
+                if(show_client_count){
+                    icon_count_view.setText(Integer.toString(((AP) (current.device)).clients.size()));
+                    icon_count_view.setVisibility(View.VISIBLE);
+                }else{
+                    icon_count_view.setVisibility(View.GONE);
+                }
             }else{
                 iv.setImageResource(R.drawable.st2);
+
+                icon_count_view.setVisibility(View.GONE);
             }
 
             return itemview;
@@ -1284,20 +1383,20 @@ public class MainActivity extends AppCompatActivity{
             // find the item to work with
             CustomAction currentItem = CustomAction.cmds.get(position);
 
-            TextView upperLeft = (TextView) itemview.findViewById(R.id.upperLeft);
+            TextView upperLeft = itemview.findViewById(R.id.upperLeft);
             upperLeft.setText(currentItem.getTitle());
 
-            TextView lowerLeft = (TextView) itemview.findViewById(R.id.lowerLeft);
+            TextView lowerLeft = itemview.findViewById(R.id.lowerLeft);
             lowerLeft.setText(currentItem.getStartCmd());
 
-            TextView lowerRight = (TextView) itemview.findViewById(R.id.lowerRight);
+            TextView lowerRight = itemview.findViewById(R.id.lowerRight);
             lowerRight.setText("");
 
-            TextView upperRight = (TextView) itemview.findViewById(R.id.upperRight);
+            TextView upperRight = itemview.findViewById(R.id.upperRight);
             upperRight.setText("");
 
             //Image
-            ImageView iv = (ImageView) itemview.findViewById(R.id.iv);
+            ImageView iv = itemview.findViewById(R.id.iv);
             if(currentItem.getType()==TYPE_ST){
                 iv.setImageResource(R.drawable.st2);
             }else{
@@ -1329,11 +1428,11 @@ public class MainActivity extends AppCompatActivity{
             // find the item to work with
             RootFile currentItem = FileExplorerDialog.list.get(position);
 
-            TextView firstText = (TextView) itemview.findViewById(R.id.explorer_item_tv);
+            TextView firstText = itemview.findViewById(R.id.explorer_item_tv);
             firstText.setText(currentItem.getName());
 
             //Image
-            ImageView iv = (ImageView) itemview.findViewById(R.id.explorer_iv);
+            ImageView iv = itemview.findViewById(R.id.explorer_iv);
             if(currentItem.isFile()){
                 iv.setImageResource(R.drawable.file);
             }else{
@@ -1439,13 +1538,8 @@ public class MainActivity extends AppCompatActivity{
         }
     }
     static void refreshDrawer(){
-        if(mDrawerList.getChildAt(0)!=null){        //Ensure that the Drawer is initialized
-            for(int i = 0; i<6; i++){
-                mDrawerList.getChildAt(i).setBackgroundResource(R.color.colorPrimary);
-            }
-            mDrawerList.getChildAt(currentFragment).setBackgroundResource(R.color.colorAccent);
-        }
-        actionBar.setTitle(mPlanetTitles[currentFragment]);
+        navigationView.getMenu().findItem(currentFragment).setChecked(true);
+        actionBar.setTitle(navTitlesMap.get(currentFragment));
     }
     static String getManuf(String mac){
         mac = trimMac(mac);
@@ -1483,15 +1577,6 @@ public class MainActivity extends AppCompatActivity{
         }
         str += "ago";
         return str;
-    }
-    static String getDirectory(String str){
-        //Returns a directory that ends with /
-        if(str==null) return null;
-        if(str.length()==0) return str;
-
-        if(str.charAt(str.length()-1)=='/'){
-            return str;
-        }else return str + '/';
     }
     static String getFixed(String text, int size){
         /*Returns a string of fixed length (size) that contains spaces followed by a text
@@ -1549,24 +1634,55 @@ public class MainActivity extends AppCompatActivity{
         }
 
         try{
-            String url = "https://raw.githubusercontent.com/chrisk44/HijackerVersionCheck/master/version.txt";
-            HttpURLConnection connection = (HttpURLConnection) (new URL(url).openConnection());
+            HttpsURLConnection connection = (HttpsURLConnection) (new URL(RELEASES_LINK).openConnection());
             connection.setConnectTimeout(5000);
             connection.setReadTimeout(5000);
 
-            BufferedReader out = new BufferedReader(new InputStreamReader(connection.getInputStream(), "iso-8859-1"), 8);
+            JsonReader reader = new JsonReader(new InputStreamReader(connection.getInputStream()));
+            reader.beginArray();
+            if(!reader.hasNext()){
+                //No releases
+                Log.e("HIJACKER/UpdateCheck", "No releases found");
+                throw new Exception();
+            }
 
-            int latestCode = Integer.parseInt(out.readLine());
-            String latestName = out.readLine();
-            String latestLink = out.readLine();
+            String latestName = null, latestLink = null, latestBody = null;
 
-            out.close();
+            reader.beginObject();
+            //Run through all the names in the release array
+            while(reader.hasNext()){
+                String field = reader.nextName();
+                if(field.equals("tag_name")){
+                    latestName = reader.nextString();
+                }else if(field.equals("body")){
+                    latestBody = reader.nextString();
+                    if(latestBody.equals("")) latestBody = null;
+                }else if(field.equals("assets")){
+                    //assets is an array
+                    reader.beginArray();
+                    reader.beginObject();
+                    //Run through all the names in the 'assets' array
+                    while(reader.hasNext()){
+                        field = reader.nextName();
+                        if(field.equals("browser_download_url")){
+                            latestLink = reader.nextString();
+                        }else{
+                            reader.skipValue();
+                        }
+                    }
+                    reader.endObject();
+                    reader.endArray();
+                }else{
+                    reader.skipValue();
+                }
+            }
+            reader.close();
 
-            if(latestCode > versionCode){
+            if(!versionName.equals(latestName)){
                 final UpdateConfirmDialog dialog = new UpdateConfirmDialog();
-                dialog.newVersionCode = latestCode;
                 dialog.newVersionName = latestName;
                 dialog.link = latestLink;
+                dialog.message = latestBody;
                 runInHandler(new Runnable(){
                     @Override
                     public void run(){
@@ -1576,7 +1692,7 @@ public class MainActivity extends AppCompatActivity{
             }else{
                 if(showMessages) Snackbar.make(rootView, activity.getString(R.string.already_on_latest), Snackbar.LENGTH_SHORT).show();
             }
-        }catch(IOException | NumberFormatException e){
+        }catch(Exception e){
             Log.e("HIJACKER/update", e.toString());
             if(showMessages) Snackbar.make(rootView, activity.getString(R.string.unknown_error), Snackbar.LENGTH_SHORT).show();
         }finally{
@@ -1644,6 +1760,51 @@ public class MainActivity extends AppCompatActivity{
             return false;
         }
         return true;
+    }
+
+    static String findFirmwarePath(Shell shell){
+        //Blocking function, don't run on main thread
+        boolean flag = false;
+        if(shell==null){
+            flag = true;
+            shell = getFreeShell();
+        }
+
+        String dirs[] = {
+                "/system",
+                "/vendor"
+        };
+        String firmware = null;
+        int i = 0;
+        while(firmware==null && i<dirs.length){
+            firmware = checkDirectoryForFirmware(shell, dirs[i]);
+            i++;
+        }
+
+        if(flag){
+            //Release the shell only if it was obtained by this function
+            shell.done();
+        }
+
+        return firmware;
+    }
+    static String checkDirectoryForFirmware(Shell shell, String directory){
+        String firmware = null;
+        shell.run(busybox + " find " + directory + " -type f -name \"fw_bcmdhd.bin\"; echo ENDOFFIND");
+        BufferedReader out = shell.getShell_out();
+        try{
+            String result = out.readLine();
+            while(result!=null){
+                if(result.equals("ENDOFFIND")) break;
+                if(!result.contains("/bac/") && !result.contains("backup")) firmware = result;
+
+                result = out.readLine();
+            }
+        }catch(IOException e){
+            e.printStackTrace();
+        }
+
+        return firmware;
     }
 
     static{

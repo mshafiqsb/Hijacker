@@ -1,7 +1,7 @@
 package com.hijacker;
 
 /*
-    Copyright (C) 2016  Christos Kyriakopoylos
+    Copyright (C) 2019  Christos Kyriakopoulos
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -40,19 +40,19 @@ public class APDialog extends DialogFragment {
         View view = getActivity().getLayoutInflater().inflate(R.layout.ap_info, null);
 
         if(ap[0]==null) {
-            ap[0] = (TextView) view.findViewById(R.id.essid);
-            ap[1] = (TextView) view.findViewById(R.id.mac);
-            ap[2] = (TextView) view.findViewById(R.id.channel);
-            ap[3] = (TextView) view.findViewById(R.id.pwr);
-            ap[4] = (TextView) view.findViewById(R.id.enc);
-            ap[5] = (TextView) view.findViewById(R.id.auth);
-            ap[6] = (TextView) view.findViewById(R.id.cipher);
-            ap[7] = (TextView) view.findViewById(R.id.beacons);
-            ap[8] = (TextView) view.findViewById(R.id.data);
-            ap[9] = (TextView) view.findViewById(R.id.ivs);
-            ap[10] = (TextView) view.findViewById(R.id.clients);
-            ap[11] = (TextView) view.findViewById(R.id.manuf);
-            ap[12] = (TextView) view.findViewById(R.id.lastseen);
+            ap[0] = view.findViewById(R.id.essid);
+            ap[1] = view.findViewById(R.id.mac);
+            ap[2] = view.findViewById(R.id.channel);
+            ap[3] = view.findViewById(R.id.pwr);
+            ap[4] = view.findViewById(R.id.enc);
+            ap[5] = view.findViewById(R.id.auth);
+            ap[6] = view.findViewById(R.id.cipher);
+            ap[7] = view.findViewById(R.id.beacons);
+            ap[8] = view.findViewById(R.id.data);
+            ap[9] = view.findViewById(R.id.ivs);
+            ap[10] = view.findViewById(R.id.clients);
+            ap[11] = view.findViewById(R.id.manuf);
+            ap[12] = view.findViewById(R.id.lastseen);
         }
 
         ap[0].setText(info_ap.essid);

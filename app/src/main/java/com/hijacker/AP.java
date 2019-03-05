@@ -1,7 +1,7 @@
 package com.hijacker;
 
 /*
-    Copyright (C) 2016  Christos Kyriakopoylos
+    Copyright (C) 2019  Christos Kyriakopoulos
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -17,13 +17,13 @@ package com.hijacker;
     along with this program.  If not, see <http://www.gnu.org/licenses/>
  */
 
-import android.app.Activity;
 import android.app.FragmentManager;
 import android.app.FragmentTransaction;
 import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.PopupMenu;
+import android.widget.Toast;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -49,7 +49,7 @@ import static com.hijacker.MainActivity.airodump_dir;
 import static com.hijacker.MainActivity.aliases;
 import static com.hijacker.MainActivity.aliases_file;
 import static com.hijacker.MainActivity.aliases_in;
-import static com.hijacker.MainActivity.cap_dir;
+import static com.hijacker.MainActivity.cap_path;
 import static com.hijacker.MainActivity.copy;
 import static com.hijacker.MainActivity.data_path;
 import static com.hijacker.MainActivity.debug;
@@ -149,8 +149,7 @@ class AP extends Device{
         this.cipher = cipher;
         this.auth = auth;
         this.pwr = pwr;
-        if(ch==-1 || ch>14) this.ch = 0;
-        else this.ch = ch;      //for hidden networks
+        this.ch = ch;
 
         if(sec==UNKNOWN){
             switch(this.enc){
@@ -216,15 +215,16 @@ class AP extends Device{
         }
         if(is_ap==null) isolate(this.mac);
     }
-    void crackReaver(FragmentManager fragmentManager){
+    void crackReaver(MainActivity activity){
+        FragmentManager fragmentManager = activity.getFragmentManager();
+
         ReaverFragment.ap = this;
         FragmentTransaction ft = fragmentManager.beginTransaction();
-        ft.replace(R.id.fragment1, new ReaverFragment());
+        ft.replace(R.id.fragment1, activity.reaverFragment.setAutostart(true));
         ft.setTransition(FragmentTransaction.TRANSIT_FRAGMENT_OPEN);
         ft.addToBackStack(null);
         ft.commitAllowingStateLoss();
         fragmentManager.executePendingTransactions();      //Wait for everything to be set up
-        ReaverFragment.start_button.performClick();             //Click start to run reaver
     }
     void disconnectAll(){
         if(Airodump.getChannel() != this.ch){
@@ -315,7 +315,7 @@ class AP extends Device{
         this.isMarked = false;
         Tile.filter();
     }
-    PopupMenu getPopupMenu(final Activity activity, final View v){
+    PopupMenu getPopupMenu(final MainActivity activity, final View v){
         PopupMenu popup = new PopupMenu(activity, v);
         popup.getMenuInflater().inflate(R.menu.popup_menu, popup.getMenu());
 
@@ -418,14 +418,18 @@ class AP extends Device{
                                     case 5:
                                         //copy crack command
                                         String str;
-                                        if(AP.this.sec==WEP) str = prefix + " " + airodump_dir + " --channel " + AP.this.ch + " --bssid " + AP.this.mac + " --ivs -w " + cap_dir + "/wep_ivs " + iface;
-                                        else str = prefix + " " + airodump_dir + " --channel " + AP.this.ch + " --bssid " + AP.this.mac + " -w " + cap_dir + "/handshake " + iface;
+                                        if(AP.this.sec==WEP) str = prefix + " " + airodump_dir + " --channel " + AP.this.ch + " --bssid " + AP.this.mac + " --ivs -w " + cap_path + "/wep_ivs " + iface;
+                                        else str = prefix + " " + airodump_dir + " --channel " + AP.this.ch + " --bssid " + AP.this.mac + " -w " + cap_path + "/handshake " + iface;
 
                                         copy(str, v);
                                         break;
                                     case 6:
                                         //crack with reaver
-                                        AP.this.crackReaver(mFragmentManager);
+                                        if(ReaverFragment.isRunning()){
+                                            Toast.makeText(activity, activity.getString(R.string.reaver_already_running), Toast.LENGTH_SHORT).show();
+                                        }else{
+                                            AP.this.crackReaver(activity);
+                                        }
                                         break;
                                 }
                                 return false;

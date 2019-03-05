@@ -1,7 +1,7 @@
 package com.hijacker;
 
 /*
-    Copyright (C) 2016  Christos Kyriakopoylos
+    Copyright (C) 2019  Christos Kyriakopoulos
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -25,10 +25,15 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 
 import static com.hijacker.AP.getAPByMac;
+import static com.hijacker.MainActivity.BAND_2;
+import static com.hijacker.MainActivity.BAND_5;
+import static com.hijacker.MainActivity.BAND_BOTH;
+import static com.hijacker.MainActivity.MAX_READLINE_SIZE;
 import static com.hijacker.MainActivity.airodump_dir;
 import static com.hijacker.MainActivity.always_cap;
+import static com.hijacker.MainActivity.band;
 import static com.hijacker.MainActivity.busybox;
-import static com.hijacker.MainActivity.cap_dir;
+import static com.hijacker.MainActivity.cap_path;
 import static com.hijacker.MainActivity.debug;
 import static com.hijacker.MainActivity.delete_extra;
 import static com.hijacker.MainActivity.enable_monMode;
@@ -69,7 +74,7 @@ class Airodump{
                 else if(always_cap) file_prefix = "/cap";
                 else throw new IllegalStateException("Airodump is not supposed to be writing to a file");
 
-                shell.run("ls " + cap_dir + file_prefix + "*.cap; echo ENDOFLS");
+                shell.run("ls " + cap_path + file_prefix + "*.cap; echo ENDOFLS");
                 capFile = getLastLine(shell.getShell_out(), "ENDOFLS");
 
                 if(capFile.equals("ENDOFLS")){
@@ -159,11 +164,15 @@ class Airodump{
         start();
     }
     static void start(){
-        String cmd = "su -c " + prefix + " " + airodump_dir + " --update 1 --berlin 1 ";
+        String cmd = "su -c " + prefix + " " + airodump_dir + " --update 1 --berlin 1 --band ";
 
-        if(forWPA) cmd += "-w " + cap_dir + "/handshake ";
-        else if(forWEP) cmd += "--ivs -w " + cap_dir + "/wep_ivs ";
-        else if(always_cap) cmd += "-w " + cap_dir + "/cap ";
+        if(band==BAND_5 || band==BAND_BOTH) cmd += "a";
+        if(band==BAND_2 || band==BAND_BOTH) cmd += "bg";
+        cmd += " ";
+
+        if(forWPA) cmd += "-w " + cap_path + "/handshake ";
+        else if(forWEP) cmd += "--ivs -w " + cap_path + "/wep_ivs ";
+        else if(always_cap) cmd += "-w " + cap_path + "/cap ";
 
         if(channel!=0) cmd += "--channel " + channel + " ";
 
@@ -184,9 +193,9 @@ class Airodump{
                     int mode = channel==0 ? 0 : 1;
                     Process process = Runtime.getRuntime().exec(final_cmd);
                     last_action = System.currentTimeMillis();
-                    BufferedReader in = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+                    BoundedBufferedReader in = new BoundedBufferedReader(new InputStreamReader(process.getErrorStream()));
                     String buffer;
-                    while(Airodump.isRunning() && (buffer = in.readLine())!=null){
+                    while(Airodump.isRunning() && (buffer = in.readLine(MAX_READLINE_SIZE))!=null){
                         main(buffer, mode);
                     }
                 }catch(IOException e){ Log.e("HIJACKER/Exception", "Caught Exception in Airodump.start() read thread: " + e.toString()); }

@@ -1,7 +1,7 @@
 package com.hijacker;
 
 /*
-    Copyright (C) 2016  Christos Kyriakopoylos
+    Copyright (C) 2019  Christos Kyriakopoulos
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -39,7 +39,7 @@ public class CustomActionManagerFragment extends Fragment{
     public View onCreateView(LayoutInflater inflater, final ViewGroup container, Bundle savedInstanceState){
         View v = inflater.inflate(R.layout.custom_action_manager, container, false);
 
-        ListView list = (ListView)v.findViewById(R.id.list);
+        ListView list = v.findViewById(R.id.list);
         list.setAdapter(custom_action_adapter);
         list.setOnItemClickListener(new AdapterView.OnItemClickListener(){
             @Override
@@ -79,7 +79,7 @@ public class CustomActionManagerFragment extends Fragment{
             }
         });
 
-        FloatingActionButton fab = (FloatingActionButton)v.findViewById(R.id.floatingActionButton);
+        FloatingActionButton fab = v.findViewById(R.id.floatingActionButton);
         fab.setOnClickListener(new View.OnClickListener(){
             @Override
             public void onClick(View view){
